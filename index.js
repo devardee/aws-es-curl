@@ -55,7 +55,7 @@ var readStdin = function() {
   });
 };
 
-var execute = function(endpoint, region, path, method, body) {
+var execute = function(endpoint, region, path, method, body, tenant) {
   return new Promise((resolve, reject) => {
     var req = new AWS.HttpRequest(endpoint);
     req.method = method || 'GET';
@@ -76,6 +76,9 @@ var execute = function(endpoint, region, path, method, body) {
     // For Dashboard Server to accept the request
     req.headers['osd-xsrf'] = true;
     req.headers['kbn-xsrf'] = true;
+    if (path.includes('_dashboards') || path.includes('_plugin/kibana')) {
+      req.headers['security_tenant'] = tenant;
+    }
 
     var signer = new AWS.Signers.V4(req, 'es');
     signer.addAuthorization(credentials, new Date());
@@ -113,7 +116,9 @@ var main = function() {
         input = options.data || options.d;
       }
 
-      if(!maybeUrl || (maybeUrl && maybeUrl == 'help') || options.help || options.h) {
+      var tenant = options.tenant || 'global'
+
+      if(!maybeUrl || (maybeUrl && maybeUrl === 'help') || options.help || options.h) {
         console.log('Usage: aws-es-curl [options] <url>');
         console.log();
         console.log('Options:');
@@ -121,13 +126,15 @@ var main = function() {
         console.log("\t--profile \tAWS profile \t(Default: default)");
         console.log("\t--region \tAWS region \t(Default: eu-west-1)");
         console.log("\t-d, --data \tSends the specified data in a POST request");
+        console.log("\t--tenant \tThe tenant to be used. If not provided defaults to 'Global' tenant. " +
+            "NOTE : The IAM User/Role should have access to the tenant and the tenant's .kibana index");
         process.exit(1);
       }
 
       if(maybeUrl && maybeUrl.indexOf('http') === 0) {
         var uri = url.parse(maybeUrl);
         var endpoint = new AWS.Endpoint(uri.host);
-        var response = yield execute(endpoint, region, uri.path, method, input);
+        var response = yield execute(endpoint, region, uri.path, method, input, tenant);
         process.stdout.write(response + "\n");
       }
     })
