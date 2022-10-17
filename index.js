@@ -73,6 +73,9 @@ var execute = function(endpoint, region, path, method, body) {
     req.headers['presigned-expires'] = false;
     req.headers['content-type'] = 'application/json';
     req.headers.Host = endpoint.host;
+    // For Dashboard Server to accept the request
+    req.headers['osd-xsrf'] = true;
+    req.headers['kbn-xsrf'] = true;
 
     var signer = new AWS.Signers.V4(req, 'es');
     signer.addAuthorization(credentials, new Date());
